@@ -21,7 +21,7 @@ func sample() {
 
 	// Setup Pulumi run parameters
 	args := &PulumiRunParameters{
-		OrgName:     "qigroup",
+		OrgName:     "acme",
 		ProjectName: "helloazure",
 		StackName:   "dev",
 		Destroy:     destroy,
