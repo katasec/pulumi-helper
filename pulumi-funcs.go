@@ -17,7 +17,7 @@ type PulumiRunParameters struct {
 	StackName   string              // Name of your pulumi stack. For e.g. "dev" or "prod"
 	Destroy     bool                // False to create stack. True to destroy your pulumi stack.
 	Plugins     []map[string]string // Plugins required for your Pulumi program
-	PulumiFn    pulumi.RunFunc      // Your pulumi program you want to run passed in as a function
+	PulumiFn    pulumi.RunFunc      // Your pulumi program you want to run, passed in as a function
 }
 
 func RunPulumi(ctx context.Context, params *PulumiRunParameters) {
