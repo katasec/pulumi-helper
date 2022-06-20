@@ -1,4 +1,4 @@
-package main
+package pulumihelper
 
 import (
 	"github.com/pulumi/pulumi-azure-native/sdk/go/azure/resources"
