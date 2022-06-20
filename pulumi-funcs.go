@@ -23,18 +23,22 @@ type PulumiRunParameters struct {
 func RunPulumi(ctx context.Context, params *PulumiRunParameters) {
 
 	// Get run params
-	orgName := params.OrgName
+	//orgName := params.OrgName
 	projectName := params.ProjectName
 	stackName := params.StackName
 	destroy := params.Destroy
 	pulumiFn := params.PulumiFn
 
-	if orgName != "" {
-		stackName = auto.FullyQualifiedStackName(orgName, projectName, "dev")
-	}
+	// if orgName != "" {
+	// 	stackName = auto.FullyQualifiedStackName(orgName, projectName, "dev")
+	// }
 
 	// Create stack
 	s, err := auto.UpsertStackInlineSource(ctx, stackName, projectName, pulumiFn)
+	if err != nil {
+		fmt.Printf("Failed to create or select stack: %v\n", err)
+		os.Exit(1)
+	}
 	fmt.Printf("Created/Selected stack %q\n", stackName)
 
 	// Install the plugins
