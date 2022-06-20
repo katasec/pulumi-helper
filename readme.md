@@ -1,6 +1,6 @@
 # Overview
 
-This is are some convenience functions for using the [Pulumi Automation API](https://www.pulumi.com/docs/guides/automation-api/) to run inline Pulumi programs.
+This library contains convenience functions for using the [Pulumi Automation API](https://www.pulumi.com/docs/guides/automation-api/) to run inline Pulumi programs.
 
 ## Example
 
@@ -37,3 +37,5 @@ Run your Pulumi program using the following code:
 	ctx := context.Background()
 	pulumihelper.RunPulumi(ctx, args)
 ```
+
+Check out [sample.go](./sample.go) for an example.
