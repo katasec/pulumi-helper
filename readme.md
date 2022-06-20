@@ -4,7 +4,7 @@ This library contains convenience functions for using the [Pulumi Automation API
 
 ## Example
 
-### Setup necessary arguments to run you Pulumi program
+### Setup necessary arguments to run your Pulumi program
 
 The organization, project and stackname are provided as parameters as per below. Set the `Destroy` field to `true` for a `pulumi destory` else, set it to `true` for a `pulumi up`.
 
@@ -29,7 +29,7 @@ Finally, the `PulumiFn` field is a Go function that contains the pulumi program 
 	}
 ```
 
-Run your Pulumi program using the following code:
+### Run your Pulumi program using the following code:
 
 
 ```
