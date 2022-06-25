@@ -50,11 +50,8 @@ func RunPulumi(ctx context.Context, params *PulumiRunParameters) error {
 		err = w.InstallPlugin(ctx, "azure-native", "v1.64.1")
 		if err != nil {
 			fmt.Printf("Failed to install program plugins: %v\n", err)
-			//os.Exit(1)
 			return err
 		}
-
-		return nil
 	}
 
 	// set stack configuration specifying the AWS region to deploy
