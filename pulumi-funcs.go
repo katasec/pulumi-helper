@@ -37,7 +37,8 @@ func RunPulumi(ctx context.Context, params *PulumiRunParameters) error {
 	s, err := auto.UpsertStackInlineSource(ctx, stackName, projectName, pulumiFn)
 	if err != nil {
 		fmt.Printf("Failed to create or select stack: %v\n", err)
-		os.Exit(1)
+		// os.Exit(1)
+		return err
 	}
 	fmt.Printf("Created/Selected stack %q\n", stackName)
 
