@@ -45,14 +45,18 @@ func RunPulumi(ctx context.Context, params *PulumiRunParameters) error {
 	// Install the plugins
 	w := s.Workspace()
 	for _, plugin := range params.Plugins {
-		fmt.Printf("Installing plugin %s:%s \n", plugin["name"], plugin["version"])
+		fmt.Printf("Start Installing plugin %s:%s \n", plugin["name"], plugin["version"])
 
 		err = w.InstallPlugin(ctx, "azure-native", "v1.64.1")
 		if err != nil {
 			fmt.Printf("Failed to install program plugins: %v\n", err)
 			return err
 		}
+
+		fmt.Printf("End Installing plugin %s:%s \n", plugin["name"], plugin["version"])
 	}
+
+	fmt.Printf("All plugin installed! \n")
 
 	// set stack configuration specifying the AWS region to deploy
 	s.SetConfig(ctx, "azure-native:location", auto.ConfigValue{Value: "EastAsia"})
