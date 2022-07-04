@@ -13,24 +13,16 @@ import (
 )
 
 type PulumiRunParameters struct {
-	OrgName     string              // Name of the Pulumi Organisation for your stack
-	ProjectName string              // Name of the Pulumi project to create/destroy
-	StackName   string              // Name of your pulumi stack. For e.g. "dev" or "prod"
-	Destroy     bool                // False to create stack. True to destroy your pulumi stack.
-	Plugins     []map[string]string // Plugins required for your Pulumi program
-	PulumiFn    pulumi.RunFunc      // Your pulumi program you want to run, passed in as a function
+	OrgName      string              // Name of the Pulumi Organisation for your stack
+	ProjectName  string              // Name of the Pulumi project to create/destroy
+	StackName    string              // Name of your pulumi stack. For e.g. "dev" or "prod"
+	Destroy      bool                // False to create stack. True to destroy your pulumi stack.
+	Plugins      []map[string]string // Plugins required for your Pulumi program
+	PulumiFn     pulumi.RunFunc      // Your pulumi program you want to run, passed in as a function
+	OutputStream io.Writer
 }
 
-func RunPulumi(ctx context.Context, params *PulumiRunParameters, outputStream ...io.Writer) error {
-
-	// var destroyStream optdestroy.Option
-
-	// // wire up our destroy to stream progress to stdout
-	// if len(outputStream) >= 0 {
-	// 	stdoutStreamer := optdestroy.ProgressStreams(os.Stdout, outputStream[0])
-	// } else {
-	// 	stdoutStreamer := optdestroy.ProgressStreams(os.Stdout)
-	// }
+func RunPulumi(ctx context.Context, params *PulumiRunParameters) error {
 
 	// Get run params
 	//orgName := params.OrgName
@@ -38,6 +30,7 @@ func RunPulumi(ctx context.Context, params *PulumiRunParameters, outputStream ..
 	stackName := params.StackName
 	destroy := params.Destroy
 	pulumiFn := params.PulumiFn
+	outputStream := params.OutputStream
 
 	// if orgName != "" {
 	// 	stackName = auto.FullyQualifiedStackName(orgName, projectName, "dev")
@@ -88,8 +81,8 @@ func RunPulumi(ctx context.Context, params *PulumiRunParameters, outputStream ..
 
 		var stdoutStreamer optdestroy.Option
 
-		if len(outputStream) > 0 {
-			stdoutStreamer = optdestroy.ProgressStreams(os.Stdout, outputStream[0])
+		if outputStream != nil {
+			stdoutStreamer = optdestroy.ProgressStreams(os.Stdout, outputStream)
 		} else {
 			stdoutStreamer = optdestroy.ProgressStreams(os.Stdout)
 		}
@@ -108,8 +101,8 @@ func RunPulumi(ctx context.Context, params *PulumiRunParameters, outputStream ..
 
 	// wire up our update to stream progress to stdout
 	var stdoutStreamer optup.Option
-	if len(outputStream) > 0 {
-		stdoutStreamer = optup.ProgressStreams(os.Stdout, outputStream[0])
+	if outputStream != nil {
+		stdoutStreamer = optup.ProgressStreams(os.Stdout, outputStream)
 	} else {
 		stdoutStreamer = optup.ProgressStreams(os.Stdout)
 	}
