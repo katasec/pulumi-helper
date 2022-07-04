@@ -3,6 +3,7 @@ package pulumihelper
 import (
 	"context"
 	"fmt"
+	"io"
 	"os"
 
 	"github.com/pulumi/pulumi/sdk/v3/go/auto"
@@ -20,7 +21,16 @@ type PulumiRunParameters struct {
 	PulumiFn    pulumi.RunFunc      // Your pulumi program you want to run, passed in as a function
 }
 
-func RunPulumi(ctx context.Context, params *PulumiRunParameters) error {
+func RunPulumi(ctx context.Context, params *PulumiRunParameters, outputStream ...io.Writer) error {
+
+	// var destroyStream optdestroy.Option
+
+	// // wire up our destroy to stream progress to stdout
+	// if len(outputStream) >= 0 {
+	// 	stdoutStreamer := optdestroy.ProgressStreams(os.Stdout, outputStream[0])
+	// } else {
+	// 	stdoutStreamer := optdestroy.ProgressStreams(os.Stdout)
+	// }
 
 	// Get run params
 	//orgName := params.OrgName
@@ -76,8 +86,13 @@ func RunPulumi(ctx context.Context, params *PulumiRunParameters) error {
 	if destroy {
 		fmt.Println("Starting stack destroy")
 
-		// wire up our destroy to stream progress to stdout
-		stdoutStreamer := optdestroy.ProgressStreams(os.Stdout)
+		var stdoutStreamer optdestroy.Option
+
+		if len(outputStream) > 0 {
+			stdoutStreamer = optdestroy.ProgressStreams(os.Stdout, outputStream[0])
+		} else {
+			stdoutStreamer = optdestroy.ProgressStreams(os.Stdout)
+		}
 
 		// destroy our stack and exit early
 		_, err := s.Destroy(ctx, stdoutStreamer)
@@ -92,7 +107,13 @@ func RunPulumi(ctx context.Context, params *PulumiRunParameters) error {
 	fmt.Println("Starting update")
 
 	// wire up our update to stream progress to stdout
-	stdoutStreamer := optup.ProgressStreams(os.Stdout)
+	var stdoutStreamer optup.Option
+	if len(outputStream) > 0 {
+		stdoutStreamer = optup.ProgressStreams(os.Stdout, outputStream[0])
+	} else {
+		stdoutStreamer = optup.ProgressStreams(os.Stdout)
+	}
+	//stdoutStreamer = optup.ProgressStreams(os.Stdout)
 
 	// Run pulumi Up
 	_, err = s.Up(ctx, stdoutStreamer)
