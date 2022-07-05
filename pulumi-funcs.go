@@ -93,6 +93,7 @@ func RunPulumi(ctx context.Context, params *PulumiRunParameters) error {
 			fmt.Printf("Failed to destroy stack: %v", err)
 			return err
 		}
+		outputStream.Close()
 		fmt.Println("Stack successfully destroyed")
 		return nil
 	}
@@ -114,6 +115,7 @@ func RunPulumi(ctx context.Context, params *PulumiRunParameters) error {
 		fmt.Printf("Failed to update stack: %v\n\n", err)
 		return err
 	}
+	outputStream.Close()
 
 	fmt.Println("Update succeeded!")
 
