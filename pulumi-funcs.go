@@ -9,6 +9,8 @@ import (
 	"github.com/pulumi/pulumi/sdk/v3/go/auto"
 	"github.com/pulumi/pulumi/sdk/v3/go/auto/optdestroy"
 	"github.com/pulumi/pulumi/sdk/v3/go/auto/optup"
+	"github.com/pulumi/pulumi/sdk/v3/go/common/tokens"
+	"github.com/pulumi/pulumi/sdk/v3/go/common/workspace"
 	"github.com/pulumi/pulumi/sdk/v3/go/pulumi"
 )
 
@@ -56,8 +58,12 @@ func CreateRemoteStack(ctx context.Context, params *PulumiRunRemoteParameters) (
 		ProjectPath: params.ProjectPath,
 	}
 
+	// Define project
+	project, _ := defaultInlineProject(params.ProjectName)
+	options := auto.Project(project)
+
 	// Create stack
-	s, err := auto.UpsertStackRemoteSource(ctx, params.StackName, repo)
+	s, err := auto.UpsertStackRemoteSource(ctx, params.StackName, repo, options)
 	if err != nil {
 		fmt.Printf("Failed to create or select stack: %v\n", err)
 		return s, err
@@ -254,4 +260,19 @@ func RunPulumiRemote(ctx context.Context, params *PulumiRunRemoteParameters) err
 	}
 
 	return nil
+}
+
+func defaultInlineProject(projectName string) (workspace.Project, error) {
+	var proj workspace.Project
+	cwd, err := os.Getwd()
+	if err != nil {
+		return proj, err
+	}
+	proj = workspace.Project{
+		Name:    tokens.PackageName(projectName),
+		Runtime: workspace.NewProjectRuntimeInfo("go", nil),
+		Main:    cwd,
+	}
+
+	return proj, nil
 }
