@@ -12,6 +12,18 @@ import (
 	"github.com/pulumi/pulumi/sdk/v3/go/pulumi"
 )
 
+type PulumiRunRemoteParameters struct {
+	OrgName      string              // Name of the Pulumi Organisation for your stack
+	ProjectName  string              // Name of the Pulumi project to create/destroy
+	GitURL       string              // For example github.com/katasec/project.git
+	ProjectPath  string              // A sub folder under  github.com/katasec/project.git for e.g. folder1
+	StackName    string              // Name of your pulumi stack. For e.g. "dev" or "prod"
+	Destroy      bool                // False to create stack. True to destroy your pulumi stack.
+	Plugins      []map[string]string // Plugins required for your Pulumi program, Specified as "name" and "version" in string map
+	OutputStream *io.PipeWriter
+	Config       []map[string]string // Config for your pulumi program, specified as "name" and "value" in string map
+}
+
 type PulumiRunParameters struct {
 	OrgName      string              // Name of the Pulumi Organisation for your stack
 	ProjectName  string              // Name of the Pulumi project to create/destroy
@@ -21,6 +33,134 @@ type PulumiRunParameters struct {
 	PulumiFn     pulumi.RunFunc      // Your pulumi program you want to run, passed in as a function
 	OutputStream *io.PipeWriter
 	Config       []map[string]string // Config for your pulumi program, specified as "name" and "value" in string map
+}
+
+//func CreateLocalStack(ctx context.Context, params *PulumiRunParameters) (auto.Stack, error) {
+//	// Create stack
+//	s, err := auto.UpsertStackInlineSource(ctx, params.StackName, params.ProjectName, params.PulumiFn)
+//	if err != nil {
+//		fmt.Printf("Failed to create or select stack: %v\n", err)
+//		return s, err
+//	}
+//	fmt.Printf("Created/Selected stack %q\n", params.StackName)
+//
+//	// Return stack
+//	return s, nil
+//}
+
+func CreateRemoteStack(ctx context.Context, params *PulumiRunRemoteParameters) (auto.Stack, error) {
+
+	// arguments used to set up the remote Pulumi program
+	repo := auto.GitRepo{
+		URL:         params.GitURL,
+		ProjectPath: params.ProjectPath,
+	}
+
+	// Create stack
+	s, err := auto.UpsertStackRemoteSource(ctx, params.StackName, repo)
+	if err != nil {
+		fmt.Printf("Failed to create or select stack: %v\n", err)
+		return s, err
+	}
+	fmt.Printf("Created/Selected stack %q\n", params.StackName)
+
+	// Return stack
+	return s, nil
+}
+
+func setConfig(ctx context.Context, s auto.Stack, config []map[string]string) (auto.Stack, error) {
+	// Set stack config if specified:
+	if config != nil {
+		// set stack configuration specifying the AWS region to deploy
+		for _, key := range config {
+			err := s.SetConfig(ctx, key["name"], auto.ConfigValue{Value: key["value"]})
+			if err != nil {
+				return s, err
+			}
+		}
+
+		fmt.Println("Successfully set config")
+	}
+
+	return s, nil
+}
+
+func installPlugins(ctx context.Context, s auto.Stack, plugins []map[string]string) (auto.Stack, error) {
+	// Install the plugins if specified
+	w := s.Workspace()
+	if plugins != nil {
+		for _, key := range plugins {
+			fmt.Printf("Start Installing plugin %s:%s \n", key["name"], key["version"])
+
+			err := w.InstallPlugin(ctx, "azure-native", "v1.64.1")
+			if err != nil {
+				fmt.Printf("Failed to install program plugins: %v\n", err)
+				return s, err
+			}
+
+			fmt.Printf("End Installing plugin %s:%s \n", key["name"], key["version"])
+		}
+		fmt.Printf("All plugin installed! \n")
+	}
+	return s, nil
+}
+
+func refreshStack(ctx context.Context, s auto.Stack) error {
+	fmt.Println("Starting refresh")
+
+	_, err := s.Refresh(ctx)
+	if err != nil {
+		fmt.Printf("Failed to refresh stack: %v\n", err)
+		return err
+	}
+
+	fmt.Println("Refresh succeeded!")
+	return nil
+}
+
+func pulumiDestroy(ctx context.Context, s auto.Stack, outputStream *io.PipeWriter) error {
+	fmt.Println("Starting stack destroy")
+
+	// Add extra output stream if specified
+	var stdoutStreamer optdestroy.Option
+	if outputStream != nil {
+		stdoutStreamer = optdestroy.ProgressStreams(os.Stdout, outputStream)
+	} else {
+		stdoutStreamer = optdestroy.ProgressStreams(os.Stdout)
+	}
+
+	// destroy our stack and exit early
+	_, err := s.Destroy(ctx, stdoutStreamer)
+	if err != nil {
+		fmt.Printf("Failed to destroy stack: %v", err)
+		return err
+	}
+	outputStream.Close()
+	fmt.Println("Stack successfully destroyed")
+	return nil
+}
+
+func pulumiUp(ctx context.Context, s auto.Stack, outputStream *io.PipeWriter) error {
+	fmt.Println("Starting update")
+
+	// Add extra output stream if specified
+	var stdoutStreamer optup.Option
+	if outputStream != nil {
+		stdoutStreamer = optup.ProgressStreams(os.Stdout, outputStream)
+	} else {
+		stdoutStreamer = optup.ProgressStreams(os.Stdout)
+	}
+
+	// Run pulumi Up
+	_, err := s.Up(ctx, stdoutStreamer)
+	if err != nil {
+		fmt.Printf("Failed to update stack: %v\n\n", err)
+		return err
+	}
+	outputStream.Close()
+
+	fmt.Println("Update succeeded!")
+	return nil
 }
 
 func RunPulumi(ctx context.Context, params *PulumiRunParameters) error {
@@ -33,98 +173,79 @@ func RunPulumi(ctx context.Context, params *PulumiRunParameters) error {
 	pulumiFn := params.PulumiFn
 	outputStream := params.OutputStream
 
-	// if orgName != "" {
-	// 	stackName = auto.FullyQualifiedStackName(orgName, projectName, "dev")
-	// }
-
 	// Create stack
 	s, err := auto.UpsertStackInlineSource(ctx, stackName, projectName, pulumiFn)
 	if err != nil {
 		fmt.Printf("Failed to create or select stack: %v\n", err)
-		// os.Exit(1)
 		return err
 	}
 	fmt.Printf("Created/Selected stack %q\n", stackName)
 
 	// Install the plugins if specified
-	w := s.Workspace()
-	if params.Plugins != nil {
-		for _, plugin := range params.Plugins {
-			fmt.Printf("Start Installing plugin %s:%s \n", plugin["name"], plugin["version"])
-
-			err = w.InstallPlugin(ctx, "azure-native", "v1.64.1")
-			if err != nil {
-				fmt.Printf("Failed to install program plugins: %v\n", err)
-				return err
-			}
-
-			fmt.Printf("End Installing plugin %s:%s \n", plugin["name"], plugin["version"])
-		}
-
-		fmt.Printf("All plugin installed! \n")
-	}
+	s, _ = installPlugins(ctx, s, params.Plugins)
 
 	// Set stack config if specified:
-	if params.Config != nil {
-		// set stack configuration specifying the AWS region to deploy
-		for _, key := range params.Config {
-			s.SetConfig(ctx, key["name"], auto.ConfigValue{Value: key["value"]})
-		}
-
-		fmt.Println("Successfully set config")
-	}
+	s, _ = setConfig(ctx, s, params.Config)
 
 	// Always refresh stack before update
-	fmt.Println("Starting refresh")
-	_, err = s.Refresh(ctx)
-	if err != nil {
-		fmt.Printf("Failed to refresh stack: %v\n", err)
-		//os.Exit(1)
-		return err
-	}
-	fmt.Println("Refresh succeeded!")
+	refreshStack(ctx, s)
 
+	// Run pulumi
 	if destroy {
-		fmt.Println("Starting stack destroy")
-
-		var stdoutStreamer optdestroy.Option
-
-		if outputStream != nil {
-			stdoutStreamer = optdestroy.ProgressStreams(os.Stdout, outputStream)
-		} else {
-			stdoutStreamer = optdestroy.ProgressStreams(os.Stdout)
-		}
-
-		// destroy our stack and exit early
-		_, err := s.Destroy(ctx, stdoutStreamer)
+		err := pulumiDestroy(ctx, s, outputStream)
 		if err != nil {
-			fmt.Printf("Failed to destroy stack: %v", err)
+			fmt.Printf("Error: %v\n", err)
 			return err
 		}
-		outputStream.Close()
-		fmt.Println("Stack successfully destroyed")
-		return nil
-	}
-
-	fmt.Println("Starting update")
-
-	// wire up our update to stream progress to stdout
-	var stdoutStreamer optup.Option
-	if outputStream != nil {
-		stdoutStreamer = optup.ProgressStreams(os.Stdout, outputStream)
 	} else {
-		stdoutStreamer = optup.ProgressStreams(os.Stdout)
+		pulumiUp(ctx, s, outputStream)
+		if err != nil {
+			fmt.Printf("Error: %v\n", err)
+			return err
+		}
 	}
 
-	// Run pulumi Up
-	_, err = s.Up(ctx, stdoutStreamer)
+	return nil
+}
+
+func RunPulumiRemote(ctx context.Context, params *PulumiRunRemoteParameters) error {
+
+	// Get run params
+	stackName := params.StackName
+	destroy := params.Destroy
+	outputStream := params.OutputStream
+
+	// Create stack
+	s, err := CreateRemoteStack(ctx, params)
 	if err != nil {
-		fmt.Printf("Failed to update stack: %v\n\n", err)
+		fmt.Printf("Failed to create or select stack: %v\n", err)
 		return err
 	}
-	outputStream.Close()
+	fmt.Printf("Created/Selected stack %q\n", stackName)
 
-	fmt.Println("Update succeeded!")
+	// Install the plugins if specified
+	s, _ = installPlugins(ctx, s, params.Plugins)
+
+	// Set stack config if specified:
+	s, _ = setConfig(ctx, s, params.Config)
+
+	// Always refresh stack before update
+	refreshStack(ctx, s)
+
+	// Run pulumi
+	if destroy {
+		err := pulumiDestroy(ctx, s, outputStream)
+		if err != nil {
+			fmt.Printf("Error: %v\n", err)
+			return err
+		}
+	} else {
+		pulumiUp(ctx, s, outputStream)
+		if err != nil {
+			fmt.Printf("Error: %v\n", err)
+			return err
+		}
+	}
 
 	return nil
 }
