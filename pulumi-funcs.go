@@ -135,7 +135,11 @@ func pulumiDestroy(ctx context.Context, s auto.Stack, outputStream *io.PipeWrite
 		fmt.Printf("Failed to destroy stack: %v", err)
 		return err
 	}
-	outputStream.Close()
+
+	if outputStream != nil {
+		outputStream.Close()
+	}
+
 	fmt.Println("Stack successfully destroyed")
 	return nil
 }
@@ -157,7 +161,9 @@ func pulumiUp(ctx context.Context, s auto.Stack, outputStream *io.PipeWriter) er
 		fmt.Printf("Failed to update stack: %v\n\n", err)
 		return err
 	}
-	outputStream.Close()
+	if outputStream != nil {
+		outputStream.Close()
+	}
 
 	fmt.Println("Update succeeded!")
 	return nil
