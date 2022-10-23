@@ -31,6 +31,12 @@ func sample() {
 				"version": "v1.64.1",
 			},
 		},
+		Config: []map[string]string{
+			{
+				"name":  "azure-native:location",
+				"value": "EastAsia",
+			},
+		},
 		PulumiFn: pulumiFunc,
 	}
 
