@@ -114,13 +114,14 @@ func installPlugins(ctx context.Context, s auto.Stack, plugins []map[string]stri
 func refreshStack(ctx context.Context, s auto.Stack) error {
 	fmt.Println("Starting refresh")
 
-	_, err := s.Refresh(ctx)
+	result, err := s.Refresh(ctx)
 	if err != nil {
 		fmt.Printf("Failed to refresh stack: %v\n", err)
 		return err
 	}
 
-	fmt.Println("Refresh succeeded!")
+	fmt.Printf("Refresh succeeded!, Result:%s \n", result.Summary.Result)
+
 	return nil
 }
 
