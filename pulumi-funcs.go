@@ -24,6 +24,8 @@ type PulumiRunRemoteParameters struct {
 	Plugins      []map[string]string // Plugins required for your Pulumi program, Specified as "name" and "version" in string map
 	OutputStream *io.PipeWriter
 	Config       []map[string]string // Config for your pulumi program, specified as "name" and "value" in string map
+	Runtime      string
+	Branch       string
 }
 
 type PulumiRunParameters struct {
@@ -56,10 +58,22 @@ func CreateRemoteStack(ctx context.Context, params *PulumiRunRemoteParameters) (
 	repo := auto.GitRepo{
 		URL:         params.GitURL,
 		ProjectPath: params.ProjectPath,
+		Branch:      params.Branch,
 	}
 
 	// Define project
-	project, _ := defaultInlineProject(params.ProjectName)
+	runtime := params.Runtime
+	if runtime == "" {
+		runtime = "go"
+	}
+
+	// Generate a default project
+	project, err := defaultInlineProject(params.ProjectName, runtime)
+	if err != nil {
+		panic(err)
+	}
+
+	// Creates workspace with project settings
 	options := auto.Project(project)
 
 	// Create stack
@@ -263,7 +277,16 @@ func RunPulumiRemote(ctx context.Context, params *PulumiRunRemoteParameters) err
 	return nil
 }
 
-func defaultInlineProject(projectName string) (workspace.Project, error) {
+func defaultInlineProject(projectName string, runtime ...string) (workspace.Project, error) {
+
+	var myRuntime string
+
+	if len(runtime) > 0 {
+		myRuntime = "go"
+	} else {
+		myRuntime = runtime[0]
+	}
+
 	var proj workspace.Project
 	cwd, err := os.Getwd()
 	if err != nil {
@@ -271,7 +294,7 @@ func defaultInlineProject(projectName string) (workspace.Project, error) {
 	}
 	proj = workspace.Project{
 		Name:    tokens.PackageName(projectName),
-		Runtime: workspace.NewProjectRuntimeInfo("go", nil),
+		Runtime: workspace.NewProjectRuntimeInfo(myRuntime, nil),
 		Main:    cwd,
 	}
 
