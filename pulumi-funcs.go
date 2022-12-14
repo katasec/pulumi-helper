@@ -5,12 +5,12 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"path/filepath"
 
+	"github.com/katasec/pulumi-helper/utils"
 	"github.com/pulumi/pulumi/sdk/v3/go/auto"
 	"github.com/pulumi/pulumi/sdk/v3/go/auto/optdestroy"
 	"github.com/pulumi/pulumi/sdk/v3/go/auto/optup"
-	"github.com/pulumi/pulumi/sdk/v3/go/common/tokens"
-	"github.com/pulumi/pulumi/sdk/v3/go/common/workspace"
 	"github.com/pulumi/pulumi/sdk/v3/go/pulumi"
 )
 
@@ -37,55 +37,6 @@ type PulumiRunParameters struct {
 	PulumiFn     pulumi.RunFunc      // Your pulumi program you want to run, passed in as a function
 	OutputStream *io.PipeWriter
 	Config       []map[string]string // Config for your pulumi program, specified as "name" and "value" in string map
-}
-
-//func CreateLocalStack(ctx context.Context, params *PulumiRunParameters) (auto.Stack, error) {
-//	// Create stack
-//	s, err := auto.UpsertStackInlineSource(ctx, params.StackName, params.ProjectName, params.PulumiFn)
-//	if err != nil {
-//		fmt.Printf("Failed to create or select stack: %v\n", err)
-//		return s, err
-//	}
-//	fmt.Printf("Created/Selected stack %q\n", params.StackName)
-//
-//	// Return stack
-//	return s, nil
-//}
-
-func CreateRemoteStack(ctx context.Context, params *PulumiRunRemoteParameters) (auto.Stack, error) {
-
-	// arguments used to set up the remote Pulumi program
-	repo := auto.GitRepo{
-		URL:         params.GitURL,
-		ProjectPath: params.ProjectPath,
-		Branch:      params.Branch,
-	}
-
-	// Define project
-	runtime := params.Runtime
-	if runtime == "" {
-		runtime = "go"
-	}
-
-	// Generate a default project
-	project, err := defaultInlineProject(params.ProjectName, runtime)
-	if err != nil {
-		panic(err)
-	}
-
-	// Creates workspace with project settings
-	options := auto.Project(project)
-
-	// Create stack
-	s, err := auto.UpsertStackRemoteSource(ctx, params.StackName, repo, options)
-	if err != nil {
-		fmt.Printf("Failed to create or select stack: %v\n", err)
-		return s, err
-	}
-	fmt.Printf("Created/Selected stack %q\n", params.StackName)
-
-	// Return stack
-	return s, nil
 }
 
 func setConfig(ctx context.Context, s auto.Stack, config []map[string]string) (auto.Stack, error) {
@@ -237,29 +188,30 @@ func RunPulumi(ctx context.Context, params *PulumiRunParameters) error {
 
 func RunPulumiRemote(ctx context.Context, params *PulumiRunRemoteParameters) error {
 
-	// Get run params
 	stackName := params.StackName
-	destroy := params.Destroy
-	outputStream := params.OutputStream
+	//workDir := filepath.Join("..", "fargate")
 
-	// Create stack
-	s, err := CreateRemoteStack(ctx, params)
+	// Clone Git repo to a temp folder
+	workDir := utils.CloneRemote(params.GitURL)
+
+	// create or select a stack from a local workspace
+	// using the tmp git clone folder
+	s, err := auto.UpsertStackLocalSource(ctx, stackName, filepath.Join(workDir, params.ProjectPath))
 	if err != nil {
 		fmt.Printf("Failed to create or select stack: %v\n", err)
-		return err
+		os.Exit(1)
 	}
-	fmt.Printf("Created/Selected stack %q\n", stackName)
 
-	// Install the plugins if specified
-	s, _ = installPlugins(ctx, s, params.Plugins)
-
-	// Set stack config if specified:
+	// Set config if any
 	s, _ = setConfig(ctx, s, params.Config)
 
-	// Always refresh stack before update
+	// Refresh stack before deploy
 	refreshStack(ctx, s)
 
 	// Run pulumi
+	destroy := params.Destroy
+	outputStream := params.OutputStream
+
 	if destroy {
 		err := pulumiDestroy(ctx, s, outputStream)
 		if err != nil {
@@ -275,28 +227,4 @@ func RunPulumiRemote(ctx context.Context, params *PulumiRunRemoteParameters) err
 	}
 
 	return nil
-}
-
-func defaultInlineProject(projectName string, runtime ...string) (workspace.Project, error) {
-
-	var myRuntime string
-
-	if len(runtime) > 0 {
-		myRuntime = "go"
-	} else {
-		myRuntime = runtime[0]
-	}
-
-	var proj workspace.Project
-	cwd, err := os.Getwd()
-	if err != nil {
-		return proj, err
-	}
-	proj = workspace.Project{
-		Name:    tokens.PackageName(projectName),
-		Runtime: workspace.NewProjectRuntimeInfo(myRuntime, nil),
-		Main:    cwd,
-	}
-
-	return proj, nil
 }
