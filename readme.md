@@ -1,3 +1,8 @@
+# Deprectated
+
+Please checkout https://github.com/katasec/pulumi-runner instead.
+
+
 # Overview
 
 This library contains convenience functions for using the [Pulumi Automation API](https://www.pulumi.com/docs/guides/automation-api/) to run inline Pulumi programs.
@@ -25,6 +30,12 @@ Finally, the `PulumiFn` field is a Go function that contains the pulumi program 
 				"version": "v1.64.1",
 			},
 		},
+		Config: []map[string]string{
+			{
+				"name":  "azure-native:location",
+				"value": "EastAsia",
+			},
+		},		
 		PulumiFn: pulumiFunc,
 	}
 ```
